@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:wifi_scan/wifi_scan.dart';
-import '../core/wifi_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import '../core/android_wifi_service.dart';
 import '../core/snackbar.dart';
 
 class WiFiConnectionScreen extends StatefulWidget {
@@ -12,10 +13,10 @@ class WiFiConnectionScreen extends StatefulWidget {
 }
 
 class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
-  final WiFiService _wifiService = WiFiService();
-  final DataStreamingService _streamingService = DataStreamingService();
+  final AndroidWiFiService _wifiService = AndroidWiFiService();
+  final AndroidDataStreamingService _streamingService = AndroidDataStreamingService();
   
-  List<WiFiAccessPoint> _availableNetworks = [];
+  List<AndroidWiFiAccessPoint> _availableNetworks = [];
   bool _isScanning = false;
   bool _isConnecting = false;
   bool _isStreaming = false;
@@ -119,14 +120,19 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
     });
 
     try {
-      final success = await _wifiService.connectToWiFi(ssid, password);
+      final result = await _wifiService.connectToWiFiWithEndpoint(ssid, password);
       if (mounted) {
-        if (success) {
+        if (result['connected'] == true) {
           showSnackBar(context, 'Successfully connected to $ssid');
           _passwordController.clear();
+          
+          // Set endpoint URL if available
+          if (result['endpointUrl'] != null) {
+            _streamingEndpointController.text = result['endpointUrl'];
+          }
         } else {
           // Manual connection required
-          showSnackBar(context, 'WiFi settings opened. Please connect to $ssid manually.');
+          showSnackBar(context, result['message'] ?? 'WiFi settings opened. Please connect to $ssid manually.');
           _passwordController.clear();
         }
       }
@@ -289,12 +295,11 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
                     return ListTile(
                       leading: Icon(
                         Icons.wifi,
-                        color: _getSignalStrengthColor(network.level),
+                        color: _getSignalStrengthColor(network.signalLevel),
                       ),
                       title: Text(network.ssid),
-                      subtitle: Text('Signal: ${network.level} dBm'),
-                      trailing: network.capabilities.contains('WPA') ||
-                              network.capabilities.contains('WEP')
+                      subtitle: Text('Signal: ${network.signalLevel} dBm | ${network.security}'),
+                      trailing: network.security != 'Open'
                           ? const Icon(Icons.lock)
                           : const Icon(Icons.lock_open),
                       onTap: () => _showConnectDialog(network),
@@ -374,7 +379,12 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
                     'Streaming Data',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  if (_streamData.isNotEmpty)
+                  if (_streamData.isNotEmpty) ...[
+                    IconButton(
+                      onPressed: _saveStreamDataToFile,
+                      icon: const Icon(Icons.save),
+                      tooltip: 'Save to file',
+                    ),
                     IconButton(
                       onPressed: () {
                         setState(() {
@@ -384,6 +394,7 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
                       icon: const Icon(Icons.clear),
                       tooltip: 'Clear data',
                     ),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),
@@ -437,7 +448,7 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
     return Colors.grey;
   }
 
-  void _showConnectDialog(WiFiAccessPoint network) {
+  void _showConnectDialog(AndroidWiFiAccessPoint network) {
     _passwordController.clear();
 
     showDialog(
@@ -448,10 +459,11 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Signal Strength: ${network.level} dBm'),
+              Text('Signal Strength: ${network.signalLevel} dBm'),
+              Text('Security: ${network.security}'),
+              Text('BSSID: ${network.bssid}'),
               const SizedBox(height: 16),
-              if (network.capabilities.contains('WPA') ||
-                  network.capabilities.contains('WEP'))
+              if (network.security != 'Open')
                 Column(
                   children: [
                     TextField(
@@ -509,5 +521,48 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
         );
       },
     );
+  }
+
+  Future<void> _saveStreamDataToFile() async {
+    if (_streamData.isEmpty) {
+      showSnackBar(context, 'No data to save');
+      return;
+    }
+
+    try {
+      // Get directory to save file
+      final directoryPath = await FilePicker.platform.getDirectoryPath();
+      if (directoryPath == null) {
+        return; // User cancelled
+      }
+
+      // Generate filename with timestamp
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final filename = 'canbussy_android_stream_$timestamp.txt';
+      final filePath = '$directoryPath/$filename';
+
+      // Create file content
+      final fileContent = StringBuffer();
+      fileContent.writeln('CanBussy Android Stream Data');
+      fileContent.writeln('Generated: ${DateTime.now().toLocal()}');
+      fileContent.writeln('Total entries: ${_streamData.length}');
+      fileContent.writeln('');
+
+      for (int i = 0; i < _streamData.length; i++) {
+        fileContent.writeln('Entry ${i + 1}: ${_streamData[i]}');
+      }
+
+      // Write to file
+      final file = File(filePath);
+      await file.writeAsString(fileContent.toString());
+
+      if (mounted) {
+        showSnackBar(context, 'Stream data saved to: $filename');
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error saving file: $e');
+      }
+    }
   }
 }
