@@ -114,7 +114,7 @@ Update the `flutter-version` in all workflow files:
 - name: Setup Flutter
   uses: subosito/flutter-action@v2
   with:
-    flutter-version: '3.24.3'  # Change this version
+    flutter-version: '3.27.0'  # Change this version
 ```
 
 #### Adding Deployment Targets
