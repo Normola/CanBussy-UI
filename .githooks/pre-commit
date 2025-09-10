@@ -1,0 +1,63 @@
+#!/bin/sh
+# Git pre-commit hook for Flutter/Dart projects
+# This hook will automatically format Dart code before committing
+
+echo "🔍 Running pre-commit checks..."
+
+# Check if dart is available
+if ! command -v dart &> /dev/null; then
+    echo "❌ Error: Dart is not installed or not in PATH"
+    echo "Please install Flutter/Dart SDK first"
+    exit 1
+fi
+
+# Get list of Dart files that are staged for commit
+DART_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.dart$')
+
+if [ -z "$DART_FILES" ]; then
+    echo "✅ No Dart files to format"
+    exit 0
+fi
+
+echo "📝 Formatting Dart files..."
+
+# Track if any files were formatted
+FORMATTED_FILES=""
+FORMAT_FAILED=false
+
+# Format each staged Dart file
+for file in $DART_FILES; do
+    if [ -f "$file" ]; then
+        echo "  Formatting: $file"
+        
+        # Run dart format on the file
+        if dart format "$file" --output=write; then
+            # Check if the file was actually changed
+            if ! git diff --quiet "$file"; then
+                FORMATTED_FILES="$FORMATTED_FILES $file"
+                # Stage the formatted file
+                git add "$file"
+            fi
+        else
+            echo "❌ Error formatting $file"
+            FORMAT_FAILED=true
+        fi
+    fi
+done
+
+# Check if formatting failed
+if [ "$FORMAT_FAILED" = true ]; then
+    echo "❌ Pre-commit hook failed: Some files could not be formatted"
+    exit 1
+fi
+
+# Report results
+if [ -n "$FORMATTED_FILES" ]; then
+    echo "✅ Formatted and re-staged files:$FORMATTED_FILES"
+    echo "📝 Files have been automatically formatted and added to the commit"
+else
+    echo "✅ All Dart files were already properly formatted"
+fi
+
+echo "🎉 Pre-commit checks completed successfully!"
+exit 0
