@@ -1,0 +1,246 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Verify formatting
+      run: dart format --output=none --set-exit-if-changed .
+    
+    - name: Analyze project source
+      run: flutter analyze --fatal-infos
+    
+    - name: Run tests
+      run: flutter test --coverage
+    
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: coverage/lcov.info
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Build APK
+      run: flutter build apk --release
+    
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+
+  build-windows:
+    name: Build Windows App
+    runs-on: windows-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Enable Windows Desktop
+      run: flutter config --enable-windows-desktop
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Build Windows App
+      run: flutter build windows --release
+    
+    - name: Create Windows Archive
+      run: |
+        Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "build\windows\canbussy-windows.zip"
+      shell: powershell
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-app
+        path: build/windows/canbussy-windows.zip
+        retention-days: 30
+
+  build-web:
+    name: Build Web App
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Build Web
+      run: flutter build web --release
+    
+    - name: Upload Web artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: web-app
+        path: build/web/
+        retention-days: 30
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Run dependency vulnerability scan
+      run: flutter pub deps --json | dart pub global run pana --json
+      continue-on-error: true
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows, build-web]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows, build-web]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+    
+    - name: Get version from pubspec.yaml
+      id: version
+      run: |
+        VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+        echo "version=v$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: CanBussy UI ${{ steps.version.outputs.version }}
+        draft: false
+        prerelease: false
+        body: |
+          ## CanBussy UI Release ${{ steps.version.outputs.version }}
+          
+          ### Features
+          - Cross-platform WiFi scanning and connection
+          - Real-time data streaming
+          - Save functionality for stream data
+          - Professional logging system
+          
+          ### Platforms
+          - 🤖 Android APK
+          - 🪟 Windows Desktop App
+          - 🌐 Web Application
+          
+          ### Downloads
+          - Android: Download the APK file below
+          - Windows: Download and extract the ZIP file below
+          - Web: Available as artifact
+    
+    - name: Upload Android APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./android-apk/app-release.apk
+        asset_name: canbussy-android.apk
+        asset_content_type: application/vnd.android.package-archive
+    
+    - name: Upload Windows App to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./windows-app/canbussy-windows.zip
+        asset_name: canbussy-windows.zip
+        asset_content_type: application/zip

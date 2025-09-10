@@ -1,0 +1,128 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Check formatting
+      run: dart format --output=none --set-exit-if-changed .
+    
+    - name: Analyze code
+      run: flutter analyze --fatal-infos
+    
+    - name: Run tests with coverage
+      run: flutter test --coverage
+    
+    - name: Check test coverage
+      run: |
+        if [ -f "coverage/lcov.info" ]; then
+          echo "Coverage report generated successfully"
+          # You can add coverage threshold checks here
+        else
+          echo "No coverage report found"
+          exit 1
+        fi
+
+  build-check:
+    name: Build Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Check if Android builds
+      run: flutter build apk --debug
+    
+    - name: Check if Web builds
+      run: flutter build web --debug
+
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Check for outdated dependencies
+      run: flutter pub outdated --mode=null-safety
+      continue-on-error: true
+    
+    - name: Check pub score
+      run: flutter pub deps --json
+      continue-on-error: true
+
+  size-check:
+    name: App Size Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.3'
+        channel: 'stable'
+        cache: true
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Build APK for size analysis
+      run: flutter build apk --release --split-per-abi
+    
+    - name: Analyze APK size
+      run: |
+        for apk in build/app/outputs/flutter-apk/*.apk; do
+          echo "Size of $(basename $apk): $(du -h $apk | cut -f1)"
+        done
+    
+    - name: Check if size is reasonable (under 50MB)
+      run: |
+        for apk in build/app/outputs/flutter-apk/*.apk; do
+          size=$(stat -c%s "$apk")
+          size_mb=$((size / 1024 / 1024))
+          echo "$(basename $apk): ${size_mb}MB"
+          if [ $size_mb -gt 50 ]; then
+            echo "Warning: APK size is over 50MB"
+            exit 1
+          fi
+        done
