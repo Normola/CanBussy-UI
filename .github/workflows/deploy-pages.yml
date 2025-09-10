@@ -36,7 +36,23 @@ jobs:
       run: flutter build web --release --base-href="/CanBussy-UI/"
     
     - name: Setup Pages
+      id: setup-pages
       uses: actions/configure-pages@v4
+      with:
+        enablement: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+    
+    - name: Fallback Pages Setup
+      if: steps.setup-pages.outcome == 'failure'
+      run: |
+        echo "⚠️ Pages configuration failed. This might be the first deployment."
+        echo "📋 To fix this manually:"
+        echo "1. Go to repository Settings → Pages"
+        echo "2. Set Source to 'GitHub Actions'"
+        echo "3. Re-run this workflow"
+        echo ""
+        echo "🔄 Continuing with deployment attempt..."
     
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
