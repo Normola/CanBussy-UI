@@ -458,7 +458,7 @@ class AndroidWiFiService {
     }
   }
 
-  // Get current connectivity status
+  // Get current connectivity status (WiFi only - ignoring mobile data)
   Future<ConnectivityResult> getCurrentConnectivity() async {
     final results = await _connectivity.checkConnectivity();
     _logger.info('Connectivity check results: $results');
@@ -466,14 +466,11 @@ class AndroidWiFiService {
     if (results.contains(ConnectivityResult.wifi)) {
       _logger.info('WiFi connectivity detected and prioritized');
       return ConnectivityResult.wifi;
-    } else if (results.contains(ConnectivityResult.mobile)) {
-      _logger.info('Mobile connectivity detected');
-      return ConnectivityResult.mobile;
     } else if (results.contains(ConnectivityResult.ethernet)) {
       _logger.info('Ethernet connectivity detected');
       return ConnectivityResult.ethernet;
     } else {
-      _logger.info('No connectivity detected');
+      _logger.info('No WiFi/Ethernet connectivity - ignoring mobile data');
       return ConnectivityResult.none;
     }
   }
@@ -498,7 +495,7 @@ class AndroidWiFiService {
     }
   }
 
-  // Get detailed connectivity status including internet access
+  // Get detailed connectivity status including internet access (WiFi only)
   Future<DetailedConnectivityStatus> getDetailedConnectivityStatus() async {
     try {
       final connectivity = await getCurrentConnectivity();
@@ -509,8 +506,6 @@ class AndroidWiFiService {
           return hasInternet
               ? DetailedConnectivityStatus.wifiWithInternet
               : DetailedConnectivityStatus.wifiNoInternet;
-        case ConnectivityResult.mobile:
-          return DetailedConnectivityStatus.mobile;
         case ConnectivityResult.ethernet:
           return DetailedConnectivityStatus.ethernet;
         default:
@@ -522,23 +517,23 @@ class AndroidWiFiService {
     }
   }
 
-  // Start monitoring connectivity changes
+  // Start monitoring connectivity changes (WiFi only)
   void startConnectivityMonitoring() {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (List<ConnectivityResult> results) async {
-        // Prioritize connectivity types: WiFi > Ethernet > Mobile > None
+        // Only care about WiFi and Ethernet - ignore mobile data
         ConnectivityResult result = ConnectivityResult.none;
         if (results.contains(ConnectivityResult.wifi)) {
           result = ConnectivityResult.wifi;
         } else if (results.contains(ConnectivityResult.ethernet)) {
           result = ConnectivityResult.ethernet;
-        } else if (results.contains(ConnectivityResult.mobile)) {
-          result = ConnectivityResult.mobile;
         }
+        // Note: Ignoring mobile data connections
 
         _connectivityController.add(result);
-        _logger.info('Connectivity changed: $result (from results: $results)');
+        _logger.info(
+            'Connectivity changed: $result (from results: $results, mobile ignored)');
 
         // Also emit detailed connectivity status
         try {
@@ -553,10 +548,10 @@ class AndroidWiFiService {
         }
       },
     );
-    _logger.info('Started connectivity monitoring');
+    _logger.info('Started connectivity monitoring (WiFi only)');
   }
 
-  // Get detailed connectivity status from a specific result (helper method)
+  // Get detailed connectivity status from a specific result (helper method - WiFi only)
   Future<DetailedConnectivityStatus> _getDetailedConnectivityStatusFromResult(
       ConnectivityResult connectivity) async {
     switch (connectivity) {
@@ -565,8 +560,6 @@ class AndroidWiFiService {
         return hasInternet
             ? DetailedConnectivityStatus.wifiWithInternet
             : DetailedConnectivityStatus.wifiNoInternet;
-      case ConnectivityResult.mobile:
-        return DetailedConnectivityStatus.mobile;
       case ConnectivityResult.ethernet:
         return DetailedConnectivityStatus.ethernet;
       default:

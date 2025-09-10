@@ -75,7 +75,7 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
           }
         }
 
-        // Show appropriate messages
+        // Show appropriate messages (WiFi only)
         if (mounted) {
           switch (detailedStatus) {
             case DetailedConnectivityStatus.wifiWithInternet:
@@ -84,11 +84,8 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
             case DetailedConnectivityStatus.wifiNoInternet:
               showSnackBar(context, 'Connected to WiFi but no internet access');
               break;
-            case DetailedConnectivityStatus.mobile:
-              showSnackBar(context, 'Connected to mobile data');
-              break;
             case DetailedConnectivityStatus.none:
-              showSnackBar(context, 'Disconnected from network');
+              showSnackBar(context, 'No WiFi connection');
               break;
             default:
               break;
@@ -326,11 +323,6 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
         statusColor = Colors.orange;
         statusText = 'Connected to WiFi (No Internet)';
         break;
-      case DetailedConnectivityStatus.mobile:
-        statusIcon = Icons.signal_cellular_4_bar;
-        statusColor = Colors.blue;
-        statusText = 'Connected to Mobile Data';
-        break;
       case DetailedConnectivityStatus.ethernet:
         statusIcon = Icons.cable;
         statusColor = Colors.blue;
@@ -339,7 +331,7 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
       default:
         statusIcon = Icons.signal_wifi_off;
         statusColor = Colors.red;
-        statusText = 'No Connection';
+        statusText = 'No WiFi Connection';
     }
 
     return Card(
