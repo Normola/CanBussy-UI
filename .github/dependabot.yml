@@ -1,0 +1,114 @@
+version: 2
+updates:
+  # Flutter/Dart dependencies
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 10
+    assignees:
+      - "Normola"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "dart"
+      - "flutter"
+    ignore:
+      # Ignore patch updates for stable packages
+      - dependency-name: "flutter"
+        update-types: ["version-update:semver-patch"]
+    groups:
+      flutter-core:
+        patterns:
+          - "flutter*"
+          - "dart*"
+      ui-packages:
+        patterns:
+          - "*material*"
+          - "*cupertino*"
+          - "*widgets*"
+      networking:
+        patterns:
+          - "*http*"
+          - "*connectivity*"
+          - "*network*"
+          - "*wifi*"
+      dev-dependencies:
+        patterns:
+          - "*test*"
+          - "*build*"
+          - "*analyzer*"
+          - "*lints*"
+
+  # GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday" 
+      time: "10:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    assignees:
+      - "Normola"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "ci"
+    groups:
+      actions-core:
+        patterns:
+          - "actions/*"
+      flutter-actions:
+        patterns:
+          - "subosito/flutter-action"
+          - "*flutter*"
+      deployment-actions:
+        patterns:
+          - "*pages*"
+          - "*deploy*"
+          - "*upload*"
+
+  # Gradle dependencies (Android)
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    assignees:
+      - "Normola"
+    commit-message:
+      prefix: "android"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "android"
+      - "gradle"
+    ignore:
+      # Ignore major Android Gradle Plugin updates (need manual testing)
+      - dependency-name: "com.android.tools.build:gradle"
+        update-types: ["version-update:semver-major"]
+      # Ignore major Kotlin updates (compatibility concerns)
+      - dependency-name: "org.jetbrains.kotlin:kotlin-gradle-plugin"
+        update-types: ["version-update:semver-major"]
+    groups:
+      android-build:
+        patterns:
+          - "com.android.tools.build:*"
+          - "org.jetbrains.kotlin:*"
+      android-core:
+        patterns:
+          - "androidx.*"
+          - "com.google.android.*"
