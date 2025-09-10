@@ -116,10 +116,17 @@ class AndroidWiFiService {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   final StreamController<ConnectivityResult> _connectivityController =
       StreamController<ConnectivityResult>.broadcast();
+  final StreamController<DetailedConnectivityStatus>
+      _detailedConnectivityController =
+      StreamController<DetailedConnectivityStatus>.broadcast();
 
   // Stream to listen to connectivity changes
   Stream<ConnectivityResult> get connectivityStream =>
       _connectivityController.stream;
+
+  // Stream to listen to detailed connectivity changes
+  Stream<DetailedConnectivityStatus> get detailedConnectivityStream =>
+      _detailedConnectivityController.stream;
 
   // Check if WiFi permissions are granted
   Future<bool> checkWiFiPermissions() async {
@@ -519,7 +526,7 @@ class AndroidWiFiService {
   void startConnectivityMonitoring() {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
-      (List<ConnectivityResult> results) {
+      (List<ConnectivityResult> results) async {
         // Prioritize connectivity types: WiFi > Ethernet > Mobile > None
         ConnectivityResult result = ConnectivityResult.none;
         if (results.contains(ConnectivityResult.wifi)) {
@@ -532,9 +539,39 @@ class AndroidWiFiService {
 
         _connectivityController.add(result);
         _logger.info('Connectivity changed: $result (from results: $results)');
+
+        // Also emit detailed connectivity status
+        try {
+          final detailedStatus =
+              await _getDetailedConnectivityStatusFromResult(result);
+          _detailedConnectivityController.add(detailedStatus);
+          _logger.info('Detailed connectivity status: $detailedStatus');
+        } catch (e) {
+          _logger.severe(
+              'Error getting detailed connectivity status in monitoring: $e');
+          _detailedConnectivityController.add(DetailedConnectivityStatus.none);
+        }
       },
     );
     _logger.info('Started connectivity monitoring');
+  }
+
+  // Get detailed connectivity status from a specific result (helper method)
+  Future<DetailedConnectivityStatus> _getDetailedConnectivityStatusFromResult(
+      ConnectivityResult connectivity) async {
+    switch (connectivity) {
+      case ConnectivityResult.wifi:
+        final hasInternet = await checkInternetConnectivity();
+        return hasInternet
+            ? DetailedConnectivityStatus.wifiWithInternet
+            : DetailedConnectivityStatus.wifiNoInternet;
+      case ConnectivityResult.mobile:
+        return DetailedConnectivityStatus.mobile;
+      case ConnectivityResult.ethernet:
+        return DetailedConnectivityStatus.ethernet;
+      default:
+        return DetailedConnectivityStatus.none;
+    }
   }
 
   // Stop monitoring connectivity changes

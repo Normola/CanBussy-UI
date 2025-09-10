@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../core/android_wifi_service.dart';
@@ -57,11 +56,9 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
 
   void _startConnectivityMonitoring() {
     _wifiService.startConnectivityMonitoring();
-    _wifiService.connectivityStream.listen((ConnectivityResult result) async {
+    _wifiService.detailedConnectivityStream
+        .listen((DetailedConnectivityStatus detailedStatus) async {
       if (mounted) {
-        // Get detailed status when connectivity changes
-        final detailedStatus =
-            await _wifiService.getDetailedConnectivityStatus();
         setState(() {
           _detailedConnectionStatus = detailedStatus;
         });
@@ -129,6 +126,29 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
       setState(() {
         _detailedConnectionStatus = detailedStatus;
       });
+
+      // Show current status for debugging
+      if (mounted) {
+        String statusMessage = '';
+        switch (detailedStatus) {
+          case DetailedConnectivityStatus.wifiWithInternet:
+            statusMessage = 'Status: WiFi with internet';
+            break;
+          case DetailedConnectivityStatus.wifiNoInternet:
+            statusMessage = 'Status: WiFi without internet';
+            break;
+          case DetailedConnectivityStatus.mobile:
+            statusMessage = 'Status: Mobile data';
+            break;
+          case DetailedConnectivityStatus.ethernet:
+            statusMessage = 'Status: Ethernet';
+            break;
+          case DetailedConnectivityStatus.none:
+            statusMessage = 'Status: No connection';
+            break;
+        }
+        showSnackBar(context, statusMessage);
+      }
 
       // If connected to WiFi (with or without internet), get endpoint URL
       if (detailedStatus == DetailedConnectivityStatus.wifiWithInternet ||
