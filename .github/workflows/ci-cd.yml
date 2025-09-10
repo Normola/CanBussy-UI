@@ -262,9 +262,23 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
     
-    - name: Run dependency vulnerability scan
-      run: flutter pub deps --json | dart pub global run pana --json
+    - name: Install pana for package analysis
+      run: dart pub global activate pana
+    
+    - name: Run package analysis and dependency scan
+      run: |
+        echo "🔍 Running package analysis with pana..."
+        dart pub global run pana --json . > pana-report.json
+        echo "📊 Analysis complete. Key metrics:"
+        dart pub global run pana . | grep -E "(points|score|analysis)"
       continue-on-error: true
+    
+    - name: Upload package analysis report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: pana-analysis-report
+        path: pana-report.json
 
   deploy-staging:
     name: Deploy to Staging
