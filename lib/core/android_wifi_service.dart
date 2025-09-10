@@ -454,13 +454,19 @@ class AndroidWiFiService {
   // Get current connectivity status
   Future<ConnectivityResult> getCurrentConnectivity() async {
     final results = await _connectivity.checkConnectivity();
+    _logger.info('Connectivity check results: $results');
+
     if (results.contains(ConnectivityResult.wifi)) {
+      _logger.info('WiFi connectivity detected and prioritized');
       return ConnectivityResult.wifi;
     } else if (results.contains(ConnectivityResult.mobile)) {
+      _logger.info('Mobile connectivity detected');
       return ConnectivityResult.mobile;
     } else if (results.contains(ConnectivityResult.ethernet)) {
+      _logger.info('Ethernet connectivity detected');
       return ConnectivityResult.ethernet;
     } else {
+      _logger.info('No connectivity detected');
       return ConnectivityResult.none;
     }
   }
@@ -514,10 +520,18 @@ class AndroidWiFiService {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (List<ConnectivityResult> results) {
-        final result =
-            results.isNotEmpty ? results.first : ConnectivityResult.none;
+        // Prioritize connectivity types: WiFi > Ethernet > Mobile > None
+        ConnectivityResult result = ConnectivityResult.none;
+        if (results.contains(ConnectivityResult.wifi)) {
+          result = ConnectivityResult.wifi;
+        } else if (results.contains(ConnectivityResult.ethernet)) {
+          result = ConnectivityResult.ethernet;
+        } else if (results.contains(ConnectivityResult.mobile)) {
+          result = ConnectivityResult.mobile;
+        }
+
         _connectivityController.add(result);
-        _logger.info('Connectivity changed: $result');
+        _logger.info('Connectivity changed: $result (from results: $results)');
       },
     );
     _logger.info('Started connectivity monitoring');
