@@ -463,14 +463,32 @@ class AndroidWiFiService {
     final results = await _connectivity.checkConnectivity();
     _logger.info('Connectivity check results: $results');
 
+    // For Android, also check WiFi info directly as connectivity_plus might not report WiFi when there's no internet
+    if (Platform.isAndroid) {
+      try {
+        final wifiInfo = await getCurrentWiFiInfo();
+        final hasWifiName =
+            wifiInfo['name'] != null && wifiInfo['name']!.isNotEmpty;
+        final hasWifiIP = wifiInfo['ip'] != null && wifiInfo['ip']!.isNotEmpty;
+
+        if (hasWifiName || hasWifiIP) {
+          _logger.info(
+              'WiFi connectivity detected via network info (name: ${wifiInfo['name']}, ip: ${wifiInfo['ip']})');
+          return ConnectivityResult.wifi;
+        }
+      } catch (e) {
+        _logger.warning('Error checking WiFi info directly: $e');
+      }
+    }
+
     if (results.contains(ConnectivityResult.wifi)) {
-      _logger.info('WiFi connectivity detected and prioritized');
+      _logger.info('WiFi connectivity detected via connectivity_plus');
       return ConnectivityResult.wifi;
     } else if (results.contains(ConnectivityResult.ethernet)) {
       _logger.info('Ethernet connectivity detected');
       return ConnectivityResult.ethernet;
     } else {
-      _logger.info('No WiFi/Ethernet connectivity - ignoring mobile data');
+      _logger.info('No WiFi/Ethernet connectivity detected');
       return ConnectivityResult.none;
     }
   }
@@ -499,16 +517,23 @@ class AndroidWiFiService {
   Future<DetailedConnectivityStatus> getDetailedConnectivityStatus() async {
     try {
       final connectivity = await getCurrentConnectivity();
+      _logger.info('Current connectivity result: $connectivity');
 
       switch (connectivity) {
         case ConnectivityResult.wifi:
+          _logger.info('WiFi detected, checking internet connectivity...');
           final hasInternet = await checkInternetConnectivity();
-          return hasInternet
+          final result = hasInternet
               ? DetailedConnectivityStatus.wifiWithInternet
               : DetailedConnectivityStatus.wifiNoInternet;
+          _logger.info(
+              'WiFi status determined: $result (hasInternet: $hasInternet)');
+          return result;
         case ConnectivityResult.ethernet:
+          _logger.info('Ethernet connectivity detected');
           return DetailedConnectivityStatus.ethernet;
         default:
+          _logger.info('No connectivity detected, returning none');
           return DetailedConnectivityStatus.none;
       }
     } catch (e) {
@@ -522,25 +547,20 @@ class AndroidWiFiService {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (List<ConnectivityResult> results) async {
-        // Only care about WiFi and Ethernet - ignore mobile data
-        ConnectivityResult result = ConnectivityResult.none;
-        if (results.contains(ConnectivityResult.wifi)) {
-          result = ConnectivityResult.wifi;
-        } else if (results.contains(ConnectivityResult.ethernet)) {
-          result = ConnectivityResult.ethernet;
-        }
-        // Note: Ignoring mobile data connections
+        _logger.info('Raw connectivity results: $results');
 
-        _connectivityController.add(result);
-        _logger.info(
-            'Connectivity changed: $result (from results: $results, mobile ignored)');
+        // Use our robust getCurrentConnectivity method instead of just checking results
+        final currentConnectivity = await getCurrentConnectivity();
+        _logger.info('Determined connectivity: $currentConnectivity');
+
+        _connectivityController.add(currentConnectivity);
 
         // Also emit detailed connectivity status
         try {
-          final detailedStatus =
-              await _getDetailedConnectivityStatusFromResult(result);
+          final detailedStatus = await _getDetailedConnectivityStatusFromResult(
+              currentConnectivity);
           _detailedConnectivityController.add(detailedStatus);
-          _logger.info('Detailed connectivity status: $detailedStatus');
+          _logger.info('Emitted detailed connectivity status: $detailedStatus');
         } catch (e) {
           _logger.severe(
               'Error getting detailed connectivity status in monitoring: $e');
@@ -554,15 +574,22 @@ class AndroidWiFiService {
   // Get detailed connectivity status from a specific result (helper method - WiFi only)
   Future<DetailedConnectivityStatus> _getDetailedConnectivityStatusFromResult(
       ConnectivityResult connectivity) async {
+    _logger.info('Getting detailed status for connectivity: $connectivity');
     switch (connectivity) {
       case ConnectivityResult.wifi:
+        _logger.info('Checking internet for WiFi connection...');
         final hasInternet = await checkInternetConnectivity();
-        return hasInternet
+        final result = hasInternet
             ? DetailedConnectivityStatus.wifiWithInternet
             : DetailedConnectivityStatus.wifiNoInternet;
+        _logger
+            .info('WiFi detailed status: $result (hasInternet: $hasInternet)');
+        return result;
       case ConnectivityResult.ethernet:
+        _logger.info('Returning ethernet status');
         return DetailedConnectivityStatus.ethernet;
       default:
+        _logger.info('Returning none status for: $connectivity');
         return DetailedConnectivityStatus.none;
     }
   }
@@ -584,5 +611,36 @@ class AndroidWiFiService {
   Future<void> disableNetworkConnectivityChecking() async {
     _logger.info('Network connectivity checking disabled (Android)');
     // Note: Android handles this automatically through the system
+  }
+
+  // Debug method to test connectivity detection
+  Future<void> debugConnectivityStatus() async {
+    _logger.info('=== DEBUGGING CONNECTIVITY STATUS ===');
+
+    try {
+      // Check raw connectivity results
+      final rawResults = await _connectivity.checkConnectivity();
+      _logger.info('Raw connectivity results: $rawResults');
+
+      // Check WiFi info
+      final wifiInfo = await getCurrentWiFiInfo();
+      _logger.info('WiFi info: $wifiInfo');
+
+      // Check our processed connectivity
+      final currentConnectivity = await getCurrentConnectivity();
+      _logger.info('Processed connectivity: $currentConnectivity');
+
+      // Check detailed status
+      final detailedStatus = await getDetailedConnectivityStatus();
+      _logger.info('Detailed status: $detailedStatus');
+
+      // Check internet connectivity
+      final hasInternet = await checkInternetConnectivity();
+      _logger.info('Has internet: $hasInternet');
+    } catch (e) {
+      _logger.severe('Error in debug connectivity status: $e');
+    }
+
+    _logger.info('=== END DEBUGGING ===');
   }
 }

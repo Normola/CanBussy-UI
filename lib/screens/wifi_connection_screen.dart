@@ -119,6 +119,10 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
   // Manually refresh connection status and endpoint URL
   Future<void> _refreshConnectionStatus() async {
     try {
+      // Debug: Show raw WiFi info
+      final wifiInfo = await _wifiService.getCurrentWiFiInfo();
+      print('Debug - WiFi Info: $wifiInfo');
+
       final detailedStatus = await _wifiService.getDetailedConnectivityStatus();
       setState(() {
         _detailedConnectionStatus = detailedStatus;
@@ -144,6 +148,13 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
             statusMessage = 'Status: No connection';
             break;
         }
+
+        // Add WiFi name to status if available
+        final wifiName = wifiInfo['name'];
+        if (wifiName != null && wifiName.isNotEmpty) {
+          statusMessage += ' (WiFi: $wifiName)';
+        }
+
         showSnackBar(context, statusMessage);
       }
 
@@ -356,6 +367,15 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
               icon: const Icon(Icons.refresh),
               tooltip: 'Refresh connection status and endpoint',
               color: Colors.blue,
+            ),
+            IconButton(
+              onPressed: () async {
+                await _wifiService.debugConnectivityStatus();
+                showSnackBar(context, 'Debug info logged - check console');
+              },
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Debug connectivity status',
+              color: Colors.orange,
             ),
           ],
         ),
