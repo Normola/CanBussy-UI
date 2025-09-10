@@ -122,6 +122,39 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
     );
   }
 
+  // Manually refresh connection status and endpoint URL
+  Future<void> _refreshConnectionStatus() async {
+    try {
+      final detailedStatus = await _wifiService.getDetailedConnectivityStatus();
+      setState(() {
+        _detailedConnectionStatus = detailedStatus;
+      });
+
+      // If connected to WiFi (with or without internet), get endpoint URL
+      if (detailedStatus == DetailedConnectivityStatus.wifiWithInternet ||
+          detailedStatus == DetailedConnectivityStatus.wifiNoInternet) {
+        final endpointUrl = await _wifiService.getEndpointUrlFromGateway();
+        if (endpointUrl != null) {
+          setState(() {
+            _streamingEndpointController.text = endpointUrl;
+          });
+          if (mounted) {
+            showSnackBar(context, 'Endpoint URL updated: $endpointUrl');
+          }
+        } else {
+          if (mounted) {
+            showSnackBar(
+                context, 'Could not determine endpoint URL from gateway');
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showSnackBar(context, 'Error refreshing connection status: $e');
+      }
+    }
+  }
+
   Future<void> _scanForNetworks() async {
     setState(() {
       _isScanning = true;
@@ -296,13 +329,21 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
           children: [
             Icon(statusIcon, color: statusColor, size: 32),
             const SizedBox(width: 16),
-            Text(
-              statusText,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: statusColor,
+            Expanded(
+              child: Text(
+                statusText,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                ),
               ),
+            ),
+            IconButton(
+              onPressed: _refreshConnectionStatus,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh connection status and endpoint',
+              color: Colors.blue,
             ),
           ],
         ),
