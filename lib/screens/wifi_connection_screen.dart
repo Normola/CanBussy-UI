@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:logging/logging.dart';
 import '../core/android_wifi_service.dart';
 import '../core/snackbar.dart';
 
@@ -15,6 +16,7 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
   final AndroidWiFiService _wifiService = AndroidWiFiService();
   final AndroidDataStreamingService _streamingService =
       AndroidDataStreamingService();
+  final Logger _logger = Logger('WiFiConnectionScreen');
 
   List<AndroidWiFiAccessPoint> _availableNetworks = [];
   bool _isScanning = false;
@@ -121,7 +123,7 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
     try {
       // Debug: Show raw WiFi info
       final wifiInfo = await _wifiService.getCurrentWiFiInfo();
-      print('Debug - WiFi Info: $wifiInfo');
+      _logger.info('Debug - WiFi Info: $wifiInfo');
 
       final detailedStatus = await _wifiService.getDetailedConnectivityStatus();
       setState(() {
@@ -371,7 +373,9 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
             IconButton(
               onPressed: () async {
                 await _wifiService.debugConnectivityStatus();
-                showSnackBar(context, 'Debug info logged - check console');
+                if (mounted) {
+                  showSnackBar(context, 'Debug info logged - check console');
+                }
               },
               icon: const Icon(Icons.bug_report),
               tooltip: 'Debug connectivity status',
