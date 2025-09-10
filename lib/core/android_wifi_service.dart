@@ -232,7 +232,7 @@ class AndroidWiFiService {
     return 'Open';
   }
 
-  // Connect to a WiFi network (opens Android WiFi settings)
+  // Connect to a WiFi network with enhanced Android compatibility
   Future<Map<String, dynamic>> connectToWiFiWithEndpoint(
       String ssid, String password) async {
     try {
@@ -248,34 +248,21 @@ class AndroidWiFiService {
       }
 
       // Due to Android security restrictions (API 29+), apps can no longer
-      // programmatically connect to WiFi networks. We'll open the WiFi settings
-      // and guide the user to connect manually
+      // programmatically connect to WiFi networks. We need to guide users
+      // through manual connection with better troubleshooting
+
+      _logger.info('Opening WiFi settings for manual connection...');
       await openWiFiSettings();
 
-      // Wait a moment and check if we're connected
-      await Future.delayed(const Duration(seconds: 3));
-
-      final connectivity = await getCurrentConnectivity();
-      if (connectivity == ConnectivityResult.wifi) {
-        _logger.info('Connected to WiFi successfully');
-
-        // Try to get endpoint URL from gateway
-        final endpointUrl = await getEndpointUrlFromGateway();
-
-        return {
-          'connected': true,
-          'endpointUrl': endpointUrl,
-          'message':
-              'WiFi connection detected. Please ensure you connected to $ssid manually.',
-        };
-      } else {
-        return {
-          'connected': false,
-          'endpointUrl': null,
-          'message':
-              'Please connect to $ssid manually in WiFi settings and try again.',
-        };
-      }
+      // Show user guidance for avoiding IP configuration failures
+      return {
+        'connected': false,
+        'requiresManualConnection': true,
+        'ssid': ssid,
+        'troubleshooting': _getConnectionTroubleshooting(),
+        'message': 'Please connect to "$ssid" manually in WiFi settings. '
+            'If you see "IP configuration failure", try the troubleshooting steps provided.',
+      };
     } catch (e) {
       _logger.severe('Error in connectToWiFiWithEndpoint: $e');
       return {
@@ -284,6 +271,39 @@ class AndroidWiFiService {
         'error': e.toString(),
       };
     }
+  }
+
+  // Get troubleshooting steps for IP configuration failures
+  Map<String, dynamic> _getConnectionTroubleshooting() {
+    return {
+      'ipConfigFailure': {
+        'title': 'Fix "IP Configuration Failure"',
+        'steps': [
+          '1. Forget the network: Settings → WiFi → Tap network → Forget',
+          '2. Turn WiFi off and on again',
+          '3. Restart your device if the issue persists',
+          '4. Try connecting to a 2.4GHz network instead of 5GHz',
+          '5. Check if the network has MAC address filtering enabled',
+          '6. Use static IP if DHCP is not working',
+        ],
+        'staticIpSteps': [
+          'When connecting, tap "Advanced options"',
+          'Change "IP settings" from "DHCP" to "Static"',
+          'Set IP address: 192.168.1.100 (or similar)',
+          'Set Gateway: 192.168.1.1 (router IP)',
+          'Set DNS: 8.8.8.8 or 1.1.1.1',
+          'Set Subnet mask: 255.255.255.0',
+        ]
+      },
+      'commonCauses': [
+        'DHCP server not responding',
+        'IP address conflicts',
+        'Router configuration issues',
+        'Android WiFi bug (restart device)',
+        'Incompatible security settings',
+        'MAC address filtering',
+      ]
+    };
   }
 
   // Open Android WiFi settings
@@ -331,6 +351,48 @@ class AndroidWiFiService {
     } catch (e) {
       _logger.severe('Error getting endpoint URL from gateway: $e');
       return null;
+    }
+  }
+
+  // Check WiFi connection status after manual connection
+  Future<Map<String, dynamic>> checkConnectionStatus() async {
+    try {
+      final connectivity = await getCurrentConnectivity();
+
+      if (connectivity == ConnectivityResult.wifi) {
+        _logger.info('WiFi connection detected');
+
+        // Get current WiFi info
+        final wifiName = await _networkInfo.getWifiName();
+        final wifiIP = await _networkInfo.getWifiIP();
+        final gatewayIP = await _networkInfo.getWifiGatewayIP();
+
+        _logger.info(
+            'Connected to WiFi: $wifiName, IP: $wifiIP, Gateway: $gatewayIP');
+
+        // Try to get endpoint URL from gateway
+        final endpointUrl = await getEndpointUrlFromGateway();
+
+        return {
+          'connected': true,
+          'wifiName': wifiName?.replaceAll('"', '') ?? 'Unknown',
+          'deviceIP': wifiIP,
+          'gatewayIP': gatewayIP?.replaceAll('"', ''),
+          'endpointUrl': endpointUrl,
+          'message': 'Successfully connected to WiFi network',
+        };
+      } else {
+        return {
+          'connected': false,
+          'message': 'Not connected to WiFi. Please check your connection.',
+        };
+      }
+    } catch (e) {
+      _logger.severe('Error checking connection status: $e');
+      return {
+        'connected': false,
+        'error': e.toString(),
+      };
     }
   }
 
