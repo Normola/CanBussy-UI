@@ -8,7 +8,7 @@ void main() async {
   _logger.info('Testing WiFi gateway detection...');
 
   final networkInfo = NetworkInfo();
-  
+
   try {
     _logger.info('\n--- Current WiFi Information ---');
 
@@ -34,7 +34,8 @@ void main() async {
       final endpointUrl = 'http://$cleanGateway:1234';
       _logger.info('Default endpoint (port 1234): $endpointUrl');
       _logger.info('Alternative endpoint (port 80): http://$cleanGateway');
-      _logger.info('Alternative endpoint (port 8080): http://$cleanGateway:8080');
+      _logger
+          .info('Alternative endpoint (port 8080): http://$cleanGateway:8080');
     } else {
       _logger.severe('❌ No gateway detected - cannot generate endpoint URL');
     }
@@ -48,22 +49,22 @@ void main() async {
       ['interface', 'ip', 'show', 'config'],
       runInShell: true,
     );
-    
+
     if (result.exitCode == 0) {
       final output = result.stdout.toString();
       _logger.info('Network interface info available:');
       final lines = output.split('\n');
       for (final line in lines) {
-        if (line.toLowerCase().contains('gateway') || 
+        if (line.toLowerCase().contains('gateway') ||
             line.toLowerCase().contains('ip address') ||
             line.toLowerCase().contains('wifi')) {
           _logger.info('  $line');
         }
       }
     } else {
-      _logger.severe('❌ Failed to get network interface info: ${result.stderr}');
+      _logger
+          .severe('❌ Failed to get network interface info: ${result.stderr}');
     }
-    
   } catch (e) {
     _logger.severe('❌ Error testing gateway detection: $e');
   }

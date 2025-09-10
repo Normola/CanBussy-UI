@@ -10,28 +10,31 @@ class WindowsWiFiConnectionScreen extends StatefulWidget {
   const WindowsWiFiConnectionScreen({super.key});
 
   @override
-  State<WindowsWiFiConnectionScreen> createState() => _WindowsWiFiConnectionScreenState();
+  State<WindowsWiFiConnectionScreen> createState() =>
+      _WindowsWiFiConnectionScreenState();
 }
 
-class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScreen> {
+class _WindowsWiFiConnectionScreenState
+    extends State<WindowsWiFiConnectionScreen> {
   late final dynamic _wifiService;
   late final dynamic _streamingService;
-  
+
   List<dynamic> _availableNetworks = [];
   bool _isScanning = false;
   bool _isConnecting = false;
   bool _isStreaming = false;
   ConnectivityResult _connectionStatus = ConnectivityResult.none;
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _streamingEndpointController = TextEditingController();
-  
+  final TextEditingController _streamingEndpointController =
+      TextEditingController();
+
   final List<String> _streamData = [];
   Map<String, String?> _currentWiFiInfo = {};
 
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize platform-specific services
     if (Platform.isWindows) {
       _wifiService = WindowsWiFiService();
@@ -40,7 +43,7 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
       _wifiService = WiFiService();
       _streamingService = DataStreamingService();
     }
-    
+
     _initializeConnectivity();
     _startConnectivityMonitoring();
     _startDataStreamMonitoring();
@@ -72,7 +75,7 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
         setState(() {
           _connectionStatus = result;
         });
-        
+
         if (result == ConnectivityResult.wifi) {
           showSnackBar(context, 'Connected to WiFi');
           _loadCurrentWiFiInfo();
@@ -107,12 +110,13 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
   Future<void> _loadCurrentWiFiInfo() async {
     if (Platform.isWindows && _connectionStatus == ConnectivityResult.wifi) {
       try {
-        final info = await (_wifiService as WindowsWiFiService).getCurrentWiFiInfo();
+        final info =
+            await (_wifiService as WindowsWiFiService).getCurrentWiFiInfo();
         if (mounted) {
           setState(() {
             _currentWiFiInfo = info;
           });
-          
+
           // Auto-populate endpoint URL if it's empty and we have a gateway
           if (_streamingEndpointController.text.isEmpty) {
             await _updateEndpointFromGateway();
@@ -127,7 +131,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
   Future<void> _updateEndpointFromGateway() async {
     if (Platform.isWindows) {
       try {
-        final endpointUrl = await (_wifiService as WindowsWiFiService).getEndpointUrlFromGateway();
+        final endpointUrl = await (_wifiService as WindowsWiFiService)
+            .getEndpointUrlFromGateway();
         if (endpointUrl != null && mounted) {
           setState(() {
             _streamingEndpointController.text = endpointUrl;
@@ -147,11 +152,12 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
     try {
       List<dynamic> networks;
       if (Platform.isWindows) {
-        networks = await (_wifiService as WindowsWiFiService).scanWiFiNetworks();
+        networks =
+            await (_wifiService as WindowsWiFiService).scanWiFiNetworks();
       } else {
         networks = await (_wifiService as WiFiService).scanWiFiNetworks();
       }
-      
+
       if (mounted) {
         setState(() {
           _availableNetworks = networks;
@@ -179,21 +185,24 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
     try {
       if (Platform.isWindows) {
         // Use the new method that returns connection status and endpoint URL
-        final result = await (_wifiService as WindowsWiFiService).connectToWiFiWithEndpoint(ssid, password);
-        
+        final result = await (_wifiService as WindowsWiFiService)
+            .connectToWiFiWithEndpoint(ssid, password);
+
         if (mounted) {
           if (result['connected'] == true) {
             showSnackBar(context, 'Successfully connected to $ssid');
             _passwordController.clear();
             _loadCurrentWiFiInfo();
-            
+
             // Populate the endpoint URL if available
             if (result['endpointUrl'] != null) {
               _streamingEndpointController.text = result['endpointUrl'];
-              showSnackBar(context, 'Endpoint URL auto-populated: ${result['endpointUrl']}');
+              showSnackBar(context,
+                  'Endpoint URL auto-populated: ${result['endpointUrl']}');
             }
           } else {
-            showSnackBar(context, 'Connection attempt made. Check Windows notification area for status.');
+            showSnackBar(context,
+                'Connection attempt made. Check Windows notification area for status.');
             _passwordController.clear();
           }
         }
@@ -206,7 +215,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
             _passwordController.clear();
             _loadCurrentWiFiInfo();
           } else {
-            showSnackBar(context, 'WiFi settings opened. Please connect to $ssid manually.');
+            showSnackBar(context,
+                'WiFi settings opened. Please connect to $ssid manually.');
             _passwordController.clear();
           }
         }
@@ -235,7 +245,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
       } else {
         // For other platforms, this would open platform-specific settings
         if (mounted) {
-          showSnackBar(context, 'WiFi settings feature not available on this platform');
+          showSnackBar(
+              context, 'WiFi settings feature not available on this platform');
         }
       }
     } catch (e) {
@@ -302,7 +313,7 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
 
       // Create the file content
       final file = File(outputFile);
-      
+
       if (outputFile.toLowerCase().endsWith('.txt')) {
         // Save as plain text file with timestamps
         final buffer = StringBuffer();
@@ -310,31 +321,34 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
         buffer.writeln('# Generated: ${DateTime.now().toIso8601String()}');
         buffer.writeln('# Total packets: ${_streamData.length}');
         buffer.writeln('');
-        
+
         for (int i = 0; i < _streamData.length; i++) {
-          final timestamp = DateTime.now().subtract(Duration(seconds: _streamData.length - i));
+          final timestamp = DateTime.now()
+              .subtract(Duration(seconds: _streamData.length - i));
           buffer.writeln('${timestamp.toIso8601String()}: ${_streamData[i]}');
         }
-        
+
         await file.writeAsString(buffer.toString());
       } else {
         // Save as pcap format (simplified version)
         // Note: This creates a basic pcap-like structure
         // For full Wireshark compatibility, you might need a more sophisticated pcap library
         final buffer = StringBuffer();
-        
+
         // Write pcap header comments
         buffer.writeln('# PCAP-like data export from CanBussy');
         buffer.writeln('# Format: timestamp|packet_data');
         buffer.writeln('# Generated: ${DateTime.now().toIso8601String()}');
         buffer.writeln('');
-        
+
         for (int i = 0; i < _streamData.length; i++) {
-          final timestamp = DateTime.now().subtract(Duration(seconds: _streamData.length - i));
+          final timestamp = DateTime.now()
+              .subtract(Duration(seconds: _streamData.length - i));
           // Format as timestamp|data for easier parsing
-          buffer.writeln('${timestamp.millisecondsSinceEpoch}|${_streamData[i]}');
+          buffer
+              .writeln('${timestamp.millisecondsSinceEpoch}|${_streamData[i]}');
         }
-        
+
         await file.writeAsString(buffer.toString());
       }
 
@@ -371,10 +385,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
           children: [
             _buildConnectionStatus(),
             const SizedBox(height: 16),
-            if (Platform.isWindows)
-              _buildWindowsConnectivityControls(),
-            if (Platform.isWindows)
-              const SizedBox(height: 16),
+            if (Platform.isWindows) _buildWindowsConnectivityControls(),
+            if (Platform.isWindows) const SizedBox(height: 16),
             if (Platform.isWindows && _currentWiFiInfo.isNotEmpty)
               _buildCurrentWiFiInfo(),
             if (Platform.isWindows && _currentWiFiInfo.isNotEmpty)
@@ -452,8 +464,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
             Text(
               'Windows Network Management',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -607,7 +619,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
               children: [
                 Text(
                   '${Platform.isWindows ? "Available " : "Available "}WiFi Networks',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton.icon(
                   onPressed: _isScanning ? null : _scanForNetworks,
@@ -635,30 +648,37 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
                       leading: Icon(
                         Icons.wifi,
                         color: _getSignalStrengthColor(
-                          Platform.isWindows 
-                            ? (network as WindowsWiFiAccessPoint).signalStrengthDbm
-                            : (network as dynamic).level,
+                          Platform.isWindows
+                              ? (network as WindowsWiFiAccessPoint)
+                                  .signalStrengthDbm
+                              : (network as dynamic).level,
                         ),
                       ),
                       title: Text(
-                        Platform.isWindows 
-                          ? (network as WindowsWiFiAccessPoint).ssid
-                          : (network as dynamic).ssid,
+                        Platform.isWindows
+                            ? (network as WindowsWiFiAccessPoint).ssid
+                            : (network as dynamic).ssid,
                       ),
                       subtitle: Text(
-                        Platform.isWindows 
-                          ? 'Signal: ${(network as WindowsWiFiAccessPoint).signal} | ${network.authentication}'
-                          : 'Signal: ${(network as dynamic).level} dBm',
+                        Platform.isWindows
+                            ? 'Signal: ${(network as WindowsWiFiAccessPoint).signal} | ${network.authentication}'
+                            : 'Signal: ${(network as dynamic).level} dBm',
                       ),
                       trailing: Platform.isWindows
-                        ? ((network as WindowsWiFiAccessPoint).authentication.contains('WPA') ||
-                           network.authentication.contains('WEP'))
-                          ? const Icon(Icons.lock)
-                          : const Icon(Icons.lock_open)
-                        : ((network as dynamic).capabilities.contains('WPA') ||
-                           (network as dynamic).capabilities.contains('WEP'))
-                          ? const Icon(Icons.lock)
-                          : const Icon(Icons.lock_open),
+                          ? ((network as WindowsWiFiAccessPoint)
+                                      .authentication
+                                      .contains('WPA') ||
+                                  network.authentication.contains('WEP'))
+                              ? const Icon(Icons.lock)
+                              : const Icon(Icons.lock_open)
+                          : ((network as dynamic)
+                                      .capabilities
+                                      .contains('WPA') ||
+                                  (network as dynamic)
+                                      .capabilities
+                                      .contains('WEP'))
+                              ? const Icon(Icons.lock)
+                              : const Icon(Icons.lock_open),
                       onTap: () => _showConnectDialog(network),
                     );
                   },
@@ -666,9 +686,9 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
               )
             else
               Text(
-                Platform.isWindows 
-                  ? 'No networks found. Tap "Scan" to search for available WiFi networks.'
-                  : 'No networks found. Tap "Scan" to search for WiFi networks.',
+                Platform.isWindows
+                    ? 'No networks found. Tap "Scan" to search for available WiFi networks.'
+                    : 'No networks found. Tap "Scan" to search for WiFi networks.',
               ),
           ],
         ),
@@ -702,7 +722,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (Platform.isWindows && _connectionStatus == ConnectivityResult.wifi)
+                if (Platform.isWindows &&
+                    _connectionStatus == ConnectivityResult.wifi)
                   IconButton(
                     onPressed: _updateEndpointFromGateway,
                     icon: const Icon(Icons.refresh),
@@ -765,7 +786,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
                           icon: const Icon(Icons.save),
                           tooltip: 'Save to file',
                           style: IconButton.styleFrom(
-                            backgroundColor: Colors.green.withValues(alpha: 0.1),
+                            backgroundColor:
+                                Colors.green.withValues(alpha: 0.1),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -804,7 +826,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
                           reverse: true,
                           itemCount: _streamData.length,
                           itemBuilder: (context, index) {
-                            final reversedIndex = _streamData.length - 1 - index;
+                            final reversedIndex =
+                                _streamData.length - 1 - index;
                             return Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8.0,
@@ -838,16 +861,16 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
 
   void _showConnectDialog(dynamic network) {
     _passwordController.clear();
-    
-    final String ssid = Platform.isWindows 
-      ? (network as WindowsWiFiAccessPoint).ssid
-      : (network as dynamic).ssid;
-      
+
+    final String ssid = Platform.isWindows
+        ? (network as WindowsWiFiAccessPoint).ssid
+        : (network as dynamic).ssid;
+
     final bool isSecured = Platform.isWindows
-      ? ((network as WindowsWiFiAccessPoint).authentication.contains('WPA') ||
-         network.authentication.contains('WEP'))
-      : ((network as dynamic).capabilities.contains('WPA') ||
-         (network as dynamic).capabilities.contains('WEP'));
+        ? ((network as WindowsWiFiAccessPoint).authentication.contains('WPA') ||
+            network.authentication.contains('WEP'))
+        : ((network as dynamic).capabilities.contains('WPA') ||
+            (network as dynamic).capabilities.contains('WEP'));
 
     showDialog(
       context: context,
@@ -858,7 +881,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
             mainAxisSize: MainAxisSize.min,
             children: [
               if (Platform.isWindows)
-                Text('Type: ${(network as WindowsWiFiAccessPoint).authentication}')
+                Text(
+                    'Type: ${(network as WindowsWiFiAccessPoint).authentication}')
               else
                 Text('Signal Strength: ${(network as dynamic).level} dBm'),
               const SizedBox(height: 16),
@@ -889,7 +913,8 @@ class _WindowsWiFiConnectionScreenState extends State<WindowsWiFiConnectionScree
               else
                 Column(
                   children: [
-                    const Text('This is an open network (no password required)'),
+                    const Text(
+                        'This is an open network (no password required)'),
                     const SizedBox(height: 8),
                     if (Platform.isWindows)
                       const Text(

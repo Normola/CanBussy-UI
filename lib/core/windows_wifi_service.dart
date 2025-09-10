@@ -72,7 +72,7 @@ class WindowsWiFiService {
   // Scan for available WiFi networks
   Future<List<WindowsWiFiAccessPoint>> scanWiFiNetworks() async {
     final List<WindowsWiFiAccessPoint> networks = [];
-    
+
     try {
       // Use netsh to scan for available networks
       final result = await Process.run(
@@ -84,20 +84,21 @@ class WindowsWiFiService {
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         final lines = output.split('\n');
-        _logger.info('Scanning WiFi networks, parsing ${lines.length} lines of output');
-        
+        _logger.info(
+            'Scanning WiFi networks, parsing ${lines.length} lines of output');
+
         String? currentSSID;
         String? currentBSSID;
         String signal = '50%';
         String authentication = 'Unknown';
         String encryption = 'Unknown';
-        
+
         for (String line in lines) {
           final trimmedLine = line.trim();
-          
+
           if (trimmedLine.startsWith('SSID ') && trimmedLine.contains(' : ')) {
             _logger.info('Found SSID line: "$trimmedLine"');
-            
+
             // Save previous network if we have one
             if (currentSSID != null && currentBSSID != null) {
               _logger.info('Adding network: $currentSSID ($currentBSSID)');
@@ -109,48 +110,56 @@ class WindowsWiFiService {
                 encryption: encryption,
               ));
             }
-            
+
             // Parse new SSID - handle both named and unnamed (hidden) networks
-            final ssidMatch = RegExp(r'SSID \d+ : ?(.*)').firstMatch(trimmedLine);
+            final ssidMatch =
+                RegExp(r'SSID \d+ : ?(.*)').firstMatch(trimmedLine);
             if (ssidMatch != null) {
               final ssidName = ssidMatch.group(1)?.trim() ?? '';
               if (ssidName.isNotEmpty) {
                 currentSSID = ssidName;
                 _logger.info('Parsed SSID: "$currentSSID"');
               } else {
-                currentSSID = '<Hidden Network>'; // Show hidden networks with a placeholder name
+                currentSSID =
+                    '<Hidden Network>'; // Show hidden networks with a placeholder name
                 _logger.info('Found hidden network, using placeholder name');
               }
             } else {
               currentSSID = null;
               _logger.warning('Failed to parse SSID from: "$trimmedLine"');
             }
-            
+
             // Reset values for new network
             currentBSSID = null;
             signal = '50%';
             authentication = 'Unknown';
             encryption = 'Unknown';
-          } else if (trimmedLine.contains('Authentication') && trimmedLine.contains(':')) {
+          } else if (trimmedLine.contains('Authentication') &&
+              trimmedLine.contains(':')) {
             authentication = trimmedLine.split(':')[1].trim();
             _logger.info('Found authentication: $authentication');
-          } else if (trimmedLine.contains('Encryption') && trimmedLine.contains(':')) {
+          } else if (trimmedLine.contains('Encryption') &&
+              trimmedLine.contains(':')) {
             encryption = trimmedLine.split(':')[1].trim();
             _logger.info('Found encryption: $encryption');
-          } else if (trimmedLine.contains('Signal') && trimmedLine.contains(':')) {
+          } else if (trimmedLine.contains('Signal') &&
+              trimmedLine.contains(':')) {
             final signalMatch = RegExp(r'(\d+)%').firstMatch(trimmedLine);
             signal = signalMatch != null ? '${signalMatch.group(1)}%' : '50%';
             _logger.info('Found signal: $signal');
-          } else if (trimmedLine.contains('Radio type') && trimmedLine.contains(':')) {
+          } else if (trimmedLine.contains('Radio type') &&
+              trimmedLine.contains(':')) {
             // Radio type info - could be used for additional details
             _logger.info('Found radio type: $trimmedLine');
-          } else if (trimmedLine.startsWith('BSSID ') && trimmedLine.contains(':')) {
+          } else if (trimmedLine.startsWith('BSSID ') &&
+              trimmedLine.contains(':')) {
             // Parse BSSID and additional details - handle variable whitespace
-            final bssidMatch = RegExp(r'BSSID \d+\s*:\s*([a-fA-F0-9:]+)').firstMatch(trimmedLine);
+            final bssidMatch = RegExp(r'BSSID \d+\s*:\s*([a-fA-F0-9:]+)')
+                .firstMatch(trimmedLine);
             if (bssidMatch != null) {
               currentBSSID = bssidMatch.group(1);
               _logger.info('Found BSSID: $currentBSSID');
-              
+
               // Check if this line also contains signal info
               final signalMatch = RegExp(r'(\d+)%').firstMatch(trimmedLine);
               if (signalMatch != null) {
@@ -162,7 +171,7 @@ class WindowsWiFiService {
             }
           }
         }
-        
+
         // Don't forget the last network
         if (currentSSID != null && currentBSSID != null) {
           _logger.info('Adding final network: $currentSSID ($currentBSSID)');
@@ -175,20 +184,26 @@ class WindowsWiFiService {
           ));
         }
       }
-      
+
       // Additional detailed scan for more accurate information
       for (var i = 0; i < networks.length; i++) {
         try {
           final detailResult = await Process.run(
             'netsh',
-            ['wlan', 'show', 'profile', 'name=${networks[i].ssid}', 'key=clear'],
+            [
+              'wlan',
+              'show',
+              'profile',
+              'name=${networks[i].ssid}',
+              'key=clear'
+            ],
             runInShell: true,
           );
-          
+
           if (detailResult.exitCode == 0) {
             final detailOutput = detailResult.stdout.toString();
             final detailLines = detailOutput.split('\n');
-            
+
             for (String detailLine in detailLines) {
               final trimmedDetailLine = detailLine.trim();
               if (trimmedDetailLine.contains('Authentication')) {
@@ -206,7 +221,7 @@ class WindowsWiFiService {
     } catch (e) {
       _logger.severe('Error scanning WiFi networks: $e');
     }
-    
+
     _logger.info('Successfully parsed ${networks.length} WiFi networks');
     return networks;
   }
@@ -214,7 +229,7 @@ class WindowsWiFiService {
   // Get WiFi networks that are saved/configured
   Future<List<String>> getSavedNetworks() async {
     final List<String> networks = [];
-    
+
     try {
       final result = await Process.run(
         'netsh',
@@ -226,10 +241,11 @@ class WindowsWiFiService {
         final output = result.stdout.toString();
         final lines = output.split('\n');
         _logger.info('Parsing netsh output, total lines: ${lines.length}');
-        
+
         for (String line in lines) {
           final trimmedLine = line.trim();
-          if (trimmedLine.startsWith('All User Profile') && trimmedLine.contains(':')) {
+          if (trimmedLine.startsWith('All User Profile') &&
+              trimmedLine.contains(':')) {
             final parts = trimmedLine.split(':');
             if (parts.length > 1) {
               final networkName = parts[1].trim();
@@ -243,7 +259,7 @@ class WindowsWiFiService {
     } catch (e) {
       _logger.severe('Error getting saved networks: $e');
     }
-    
+
     return networks;
   }
 
@@ -258,18 +274,18 @@ class WindowsWiFiService {
           ['wlan', 'connect', 'name=$ssid'],
           runInShell: true,
         );
-        
+
         if (connectResult.exitCode == 0) {
           return true;
         }
       }
-      
+
       // Create new profile if it doesn't exist or connection failed
       await _createWiFiProfile(ssid, password);
-      
+
       // Wait a moment for profile to be created
       await Future.delayed(const Duration(seconds: 2));
-      
+
       // Now try to connect
       final connectResult = await Process.run(
         'netsh',
@@ -307,21 +323,25 @@ class WindowsWiFiService {
   }
 
   // Connect to WiFi and get endpoint URL
-  Future<Map<String, dynamic>> connectToWiFiWithEndpoint(String ssid, String password, {int port = 1234}) async {
+  Future<Map<String, dynamic>> connectToWiFiWithEndpoint(
+      String ssid, String password,
+      {int port = 1234}) async {
     try {
       _logger.info('Connecting to WiFi: $ssid and getting endpoint URL...');
       final connected = await connectToWiFi(ssid, password);
-      
+
       if (connected) {
-        _logger.info('WiFi connection successful, waiting for network to stabilize...');
+        _logger.info(
+            'WiFi connection successful, waiting for network to stabilize...');
         // Wait a bit more for network to stabilize after connection
         await Future.delayed(const Duration(seconds: 3));
-        
+
         // Get the endpoint URL from gateway
         _logger.info('Getting endpoint URL from gateway...');
         final endpointUrl = await getEndpointUrlFromGateway();
-        
-        _logger.info('Connection result - connected: true, endpointUrl: $endpointUrl');
+
+        _logger.info(
+            'Connection result - connected: true, endpointUrl: $endpointUrl');
         return {
           'connected': true,
           'endpointUrl': endpointUrl,
@@ -450,7 +470,7 @@ class WindowsWiFiService {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (List<ConnectivityResult> results) {
         ConnectivityResult primaryResult = ConnectivityResult.none;
-        
+
         if (results.contains(ConnectivityResult.wifi)) {
           primaryResult = ConnectivityResult.wifi;
         } else if (results.contains(ConnectivityResult.mobile)) {
@@ -458,7 +478,7 @@ class WindowsWiFiService {
         } else if (results.contains(ConnectivityResult.ethernet)) {
           primaryResult = ConnectivityResult.ethernet;
         }
-        
+
         _connectivityController.add(primaryResult);
       },
     );
@@ -482,7 +502,7 @@ class WindowsWiFiService {
       _logger.info('Getting endpoint URL from gateway...');
       final connectivity = await getCurrentConnectivity();
       _logger.info('Current connectivity: $connectivity');
-      
+
       // Remove the WiFi-only restriction - check for active WiFi adapter regardless
       // if (connectivity != ConnectivityResult.wifi) {
       //   _logger.warning('Not connected to WiFi, cannot get endpoint URL');
@@ -496,31 +516,34 @@ class WindowsWiFiService {
         bool isWifiAdapter = false;
         bool wifiAdapterHasIP = false;
         _logger.info('Parsing ipconfig output, found ${lines.length} lines');
-        
+
         for (String line in lines) {
           final trimmedLine = line.trim();
-          
+
           // Check for adapter name
           if (trimmedLine.contains('adapter') && trimmedLine.endsWith(':')) {
             // Reset flags for new adapter
             isWifiAdapter = false;
             wifiAdapterHasIP = false;
-            
+
             // Check if it's a WiFi adapter (contains "Wi-Fi", "Wireless", or "WiFi")
-            isWifiAdapter = trimmedLine.toLowerCase().contains('wi-fi') || 
-                           trimmedLine.toLowerCase().contains('wireless') ||
-                           trimmedLine.toLowerCase().contains('wifi');
+            isWifiAdapter = trimmedLine.toLowerCase().contains('wi-fi') ||
+                trimmedLine.toLowerCase().contains('wireless') ||
+                trimmedLine.toLowerCase().contains('wifi');
             _logger.info('Found adapter: $trimmedLine, isWiFi: $isWifiAdapter');
           }
-          
+
           // Check if this WiFi adapter is active (has an IPv4 address)
           if (isWifiAdapter && trimmedLine.startsWith('IPv4 Address')) {
             wifiAdapterHasIP = true;
-            _logger.info('WiFi adapter is active (has IPv4 address): $trimmedLine');
+            _logger.info(
+                'WiFi adapter is active (has IPv4 address): $trimmedLine');
           }
-          
+
           // Only process gateway for active WiFi adapters
-          if (isWifiAdapter && wifiAdapterHasIP && trimmedLine.startsWith('Default Gateway')) {
+          if (isWifiAdapter &&
+              wifiAdapterHasIP &&
+              trimmedLine.startsWith('Default Gateway')) {
             final parts = trimmedLine.split(':');
             if (parts.length > 1) {
               final gateway = parts[1].trim();
@@ -535,7 +558,8 @@ class WindowsWiFiService {
         }
         _logger.warning('No suitable gateway found in ipconfig output');
       } else {
-        _logger.severe('ipconfig command failed with exit code: ${result.exitCode}');
+        _logger.severe(
+            'ipconfig command failed with exit code: ${result.exitCode}');
       }
       return null;
     } catch (e) {
@@ -560,13 +584,13 @@ class WindowsWiFiService {
         '/f'
       ]);
 
-      // Disable NCSI passive polling  
+      // Disable NCSI passive polling
       await Process.run('reg', [
         'add',
         'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\NlaSvc\\Parameters\\Internet',
         '/v',
         'PassivePolling',
-        '/t', 
+        '/t',
         'REG_DWORD',
         '/d',
         '0',
@@ -602,7 +626,7 @@ class WindowsWiFiService {
         '/v',
         'PassivePolling',
         '/t',
-        'REG_DWORD', 
+        'REG_DWORD',
         '/d',
         '1',
         '/f'
@@ -617,7 +641,8 @@ class WindowsWiFiService {
 
 // Data streaming service (same as mobile, works cross-platform)
 class WindowsDataStreamingService {
-  static final WindowsDataStreamingService _instance = WindowsDataStreamingService._internal();
+  static final WindowsDataStreamingService _instance =
+      WindowsDataStreamingService._internal();
   factory WindowsDataStreamingService() => _instance;
   WindowsDataStreamingService._internal();
 
@@ -641,9 +666,9 @@ class WindowsDataStreamingService {
       // Start streaming data using HTTP
       final client = http.Client();
       final request = http.Request('GET', Uri.parse(endpoint));
-      
+
       final response = await client.send(request);
-      
+
       if (response.statusCode == 200) {
         _dataStreamSubscription = response.stream
             .transform(utf8.decoder)
@@ -660,7 +685,8 @@ class WindowsDataStreamingService {
           },
         );
       } else {
-        throw Exception('HTTP ${response.statusCode}: Failed to connect to endpoint');
+        throw Exception(
+            'HTTP ${response.statusCode}: Failed to connect to endpoint');
       }
     } catch (e) {
       _dataController.addError(e);

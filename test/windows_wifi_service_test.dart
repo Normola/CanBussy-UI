@@ -21,7 +21,8 @@ void main() {
         authentication: 'WPA2',
         encryption: 'AES',
       );
-      expect(ap75.signalStrengthDbm, equals(-63)); // 75% should be -63 dBm (75 ~/ 2 = 37)
+      expect(ap75.signalStrengthDbm,
+          equals(-63)); // 75% should be -63 dBm (75 ~/ 2 = 37)
 
       final ap50 = WindowsWiFiAccessPoint(
         ssid: 'TestNetwork',
@@ -50,7 +51,8 @@ void main() {
         authentication: 'WPA2',
         encryption: 'AES',
       );
-      expect(apInvalid.signalStrengthDbm, equals(-60)); // Should default to -60 dBm
+      expect(apInvalid.signalStrengthDbm,
+          equals(-60)); // Should default to -60 dBm
 
       final apEmpty = WindowsWiFiAccessPoint(
         ssid: 'TestNetwork',
@@ -59,7 +61,8 @@ void main() {
         authentication: 'WPA2',
         encryption: 'AES',
       );
-      expect(apEmpty.signalStrengthDbm, equals(-60)); // Should default to -60 dBm
+      expect(
+          apEmpty.signalStrengthDbm, equals(-60)); // Should default to -60 dBm
     });
 
     test('should generate correct capabilities string', () {
@@ -77,12 +80,12 @@ void main() {
   group('WindowsWiFiService', () {
     test('should scan for WiFi networks on Windows', () async {
       final service = WindowsWiFiService();
-      
+
       try {
         final networks = await service.scanWiFiNetworks();
         // On Windows, this should return a list (could be empty or populated)
         expect(networks, isA<List<WindowsWiFiAccessPoint>>());
-        
+
         // If networks are found, verify they have the required properties
         if (networks.isNotEmpty) {
           final firstNetwork = networks.first;
@@ -99,7 +102,7 @@ void main() {
 
     test('should generate endpoint URL from gateway', () async {
       final service = WindowsWiFiService();
-      
+
       try {
         final endpointUrl = await service.getEndpointUrlFromGateway();
         if (endpointUrl != null) {
@@ -114,7 +117,7 @@ void main() {
 
     test('should return null for non-WiFi connections', () async {
       final service = WindowsWiFiService();
-      
+
       try {
         final endpointUrl = await service.getEndpointUrlFromGateway();
         // Should return null if not connected to WiFi (e.g., Ethernet only)

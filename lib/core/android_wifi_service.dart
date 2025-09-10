@@ -34,11 +34,13 @@ class AndroidWiFiAccessPoint {
 }
 
 class AndroidDataStreamingService {
-  static final AndroidDataStreamingService _instance = AndroidDataStreamingService._internal();
+  static final AndroidDataStreamingService _instance =
+      AndroidDataStreamingService._internal();
   factory AndroidDataStreamingService() => _instance;
   AndroidDataStreamingService._internal();
 
-  final StreamController<String> _dataController = StreamController<String>.broadcast();
+  final StreamController<String> _dataController =
+      StreamController<String>.broadcast();
   Timer? _streamingTimer;
   bool _isStreaming = false;
 
@@ -53,7 +55,8 @@ class AndroidDataStreamingService {
     _logger.info('Starting data streaming from: $endpoint');
 
     // Start periodic data streaming
-    _streamingTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+    _streamingTimer =
+        Timer.periodic(const Duration(milliseconds: 500), (timer) async {
       if (!_isStreaming) {
         timer.cancel();
         return;
@@ -62,15 +65,20 @@ class AndroidDataStreamingService {
       try {
         final response = await http.get(
           Uri.parse(endpoint),
-          headers: {'Accept': 'application/json', 'User-Agent': 'CanBussy-Android'},
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'CanBussy-Android'
+          },
         ).timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200) {
           final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final data = 'HTTP ${response.statusCode} - ${response.body.length} bytes - $timestamp';
+          final data =
+              'HTTP ${response.statusCode} - ${response.body.length} bytes - $timestamp';
           _dataController.add(data);
         } else {
-          _dataController.add('HTTP Error ${response.statusCode}: ${response.reasonPhrase}');
+          _dataController.add(
+              'HTTP Error ${response.statusCode}: ${response.reasonPhrase}');
         }
       } catch (e) {
         _dataController.add('Stream Error: $e');
@@ -137,7 +145,7 @@ class AndroidWiFiService {
     ];
 
     final results = await permissions.request();
-    
+
     for (final permission in permissions) {
       final status = results[permission];
       if (status != null && !status.isGranted) {
@@ -165,9 +173,10 @@ class AndroidWiFiService {
       }
 
       // Check if WiFi scan is supported
-      final canGetScannedResults = await WiFiScan.instance.canGetScannedResults();
+      final canGetScannedResults =
+          await WiFiScan.instance.canGetScannedResults();
       _logger.info('Can get scanned results: $canGetScannedResults');
-      
+
       if (canGetScannedResults != CanGetScannedResults.yes) {
         throw Exception('WiFi scanning not supported: $canGetScannedResults');
       }
@@ -175,7 +184,7 @@ class AndroidWiFiService {
       // Start WiFi scan
       final canStartScan = await WiFiScan.instance.canStartScan();
       _logger.info('Can start scan: $canStartScan');
-      
+
       if (canStartScan == CanStartScan.yes) {
         final result = await WiFiScan.instance.startScan();
         if (!result) {
@@ -203,9 +212,11 @@ class AndroidWiFiService {
       }).toList();
 
       // Sort by signal strength (strongest first)
-      androidAccessPoints.sort((a, b) => b.signalLevel.compareTo(a.signalLevel));
+      androidAccessPoints
+          .sort((a, b) => b.signalLevel.compareTo(a.signalLevel));
 
-      _logger.info('Successfully parsed ${androidAccessPoints.length} WiFi networks');
+      _logger.info(
+          'Successfully parsed ${androidAccessPoints.length} WiFi networks');
       return androidAccessPoints;
     } catch (e) {
       _logger.severe('Failed to scan WiFi networks: $e');
@@ -222,7 +233,8 @@ class AndroidWiFiService {
   }
 
   // Connect to a WiFi network (opens Android WiFi settings)
-  Future<Map<String, dynamic>> connectToWiFiWithEndpoint(String ssid, String password) async {
+  Future<Map<String, dynamic>> connectToWiFiWithEndpoint(
+      String ssid, String password) async {
     try {
       _logger.info('Attempting to connect to WiFi: $ssid');
 
@@ -242,24 +254,26 @@ class AndroidWiFiService {
 
       // Wait a moment and check if we're connected
       await Future.delayed(const Duration(seconds: 3));
-      
+
       final connectivity = await getCurrentConnectivity();
       if (connectivity == ConnectivityResult.wifi) {
         _logger.info('Connected to WiFi successfully');
-        
+
         // Try to get endpoint URL from gateway
         final endpointUrl = await getEndpointUrlFromGateway();
-        
+
         return {
           'connected': true,
           'endpointUrl': endpointUrl,
-          'message': 'WiFi connection detected. Please ensure you connected to $ssid manually.',
+          'message':
+              'WiFi connection detected. Please ensure you connected to $ssid manually.',
         };
       } else {
         return {
           'connected': false,
           'endpointUrl': null,
-          'message': 'Please connect to $ssid manually in WiFi settings and try again.',
+          'message':
+              'Please connect to $ssid manually in WiFi settings and try again.',
         };
       }
     } catch (e) {
@@ -290,10 +304,10 @@ class AndroidWiFiService {
   Future<String?> getEndpointUrlFromGateway() async {
     try {
       _logger.info('Getting endpoint URL from gateway...');
-      
+
       final connectivity = await getCurrentConnectivity();
       _logger.info('Current connectivity: $connectivity');
-      
+
       if (connectivity != ConnectivityResult.wifi) {
         _logger.warning('Not connected to WiFi, cannot get endpoint URL');
         return null;
@@ -359,7 +373,8 @@ class AndroidWiFiService {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (List<ConnectivityResult> results) {
-        final result = results.isNotEmpty ? results.first : ConnectivityResult.none;
+        final result =
+            results.isNotEmpty ? results.first : ConnectivityResult.none;
         _connectivityController.add(result);
         _logger.info('Connectivity changed: $result');
       },

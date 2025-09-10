@@ -27,7 +27,7 @@ class WiFiService {
     if (Platform.isAndroid) {
       final locationPermission = await Permission.location.status;
       final locationAlwaysPermission = await Permission.locationAlways.status;
-      
+
       if (locationPermission.isDenied || locationAlwaysPermission.isDenied) {
         return false;
       }
@@ -39,8 +39,9 @@ class WiFiService {
   Future<bool> requestWiFiPermissions() async {
     if (Platform.isAndroid) {
       final locationPermission = await Permission.location.request();
-      final locationAlwaysPermission = await Permission.locationAlways.request();
-      
+      final locationAlwaysPermission =
+          await Permission.locationAlways.request();
+
       return locationPermission.isGranted && locationAlwaysPermission.isGranted;
     }
     return true;
@@ -59,7 +60,8 @@ class WiFiService {
       }
 
       // Check if WiFi scan is supported
-      final canGetScannedResults = await WiFiScan.instance.canGetScannedResults();
+      final canGetScannedResults =
+          await WiFiScan.instance.canGetScannedResults();
       if (canGetScannedResults != CanGetScannedResults.yes) {
         throw Exception('WiFi scanning not supported on this device');
       }
@@ -99,18 +101,17 @@ class WiFiService {
       // Due to Android security restrictions (API 29+), apps can no longer
       // programmatically connect to WiFi networks. We'll open the WiFi settings
       // and let the user connect manually.
-      
+
       if (Platform.isAndroid) {
         const intent = AndroidIntent(
           action: 'android.settings.WIFI_SETTINGS',
         );
         await intent.launch();
       }
-      
+
       // Return false to indicate manual connection is required
       // The UI should inform the user to connect manually
       return false;
-      
     } catch (e) {
       throw Exception('Failed to open WiFi settings: $e');
     }
@@ -135,7 +136,7 @@ class WiFiService {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
       (List<ConnectivityResult> results) {
         ConnectivityResult primaryResult = ConnectivityResult.none;
-        
+
         if (results.contains(ConnectivityResult.wifi)) {
           primaryResult = ConnectivityResult.wifi;
         } else if (results.contains(ConnectivityResult.mobile)) {
@@ -143,7 +144,7 @@ class WiFiService {
         } else if (results.contains(ConnectivityResult.ethernet)) {
           primaryResult = ConnectivityResult.ethernet;
         }
-        
+
         _connectivityController.add(primaryResult);
       },
     );
@@ -164,7 +165,8 @@ class WiFiService {
 
 // Data streaming service
 class DataStreamingService {
-  static final DataStreamingService _instance = DataStreamingService._internal();
+  static final DataStreamingService _instance =
+      DataStreamingService._internal();
   factory DataStreamingService() => _instance;
   DataStreamingService._internal();
 
@@ -187,26 +189,27 @@ class DataStreamingService {
       // Start streaming data using HTTP
       final client = http.Client();
       final request = http.Request('GET', Uri.parse(endpoint));
-      
+
       final response = await client.send(request);
-      
+
       if (response.statusCode == 200) {
         _dataStreamSubscription = response.stream
             .transform(utf8.decoder)
             .transform(const LineSplitter())
             .listen(
-              (String data) {
-                _dataController.add(data);
-              },
-              onError: (error) {
-                _dataController.addError('Streaming error: $error');
-              },
-              onDone: () {
-                _dataController.add('Stream ended');
-              },
-            );
+          (String data) {
+            _dataController.add(data);
+          },
+          onError: (error) {
+            _dataController.addError('Streaming error: $error');
+          },
+          onDone: () {
+            _dataController.add('Stream ended');
+          },
+        );
       } else {
-        throw Exception('Failed to connect to streaming endpoint: ${response.statusCode}');
+        throw Exception(
+            'Failed to connect to streaming endpoint: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to start data streaming: $e');

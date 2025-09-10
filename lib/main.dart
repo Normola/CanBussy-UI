@@ -12,7 +12,8 @@ void main() {
   // Configure logging
   Logger.root.level = Level.ALL; // defaults to Level.INFO
   Logger.root.onRecord.listen((record) {
-    debugPrint('${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
+    debugPrint(
+        '${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
     if (record.error != null) {
       debugPrint('Error: ${record.error}');
     }
@@ -74,7 +75,8 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     const Text(
                       'WiFi Connection & Data Streaming',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
@@ -89,14 +91,15 @@ class HomeScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => Platform.isWindows 
-                              ? const WindowsWiFiConnectionScreen()
-                              : const WiFiConnectionScreen(),
+                            builder: (context) => Platform.isWindows
+                                ? const WindowsWiFiConnectionScreen()
+                                : const WiFiConnectionScreen(),
                           ),
                         );
                       },
                       icon: const Icon(Icons.wifi_find),
-                      label: Text('Open ${Platform.isWindows ? "Windows " : ""}WiFi Settings'),
+                      label: Text(
+                          'Open ${Platform.isWindows ? "Windows " : ""}WiFi Settings'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,

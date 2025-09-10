@@ -14,16 +14,18 @@ class WiFiConnectionScreen extends StatefulWidget {
 
 class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
   final AndroidWiFiService _wifiService = AndroidWiFiService();
-  final AndroidDataStreamingService _streamingService = AndroidDataStreamingService();
-  
+  final AndroidDataStreamingService _streamingService =
+      AndroidDataStreamingService();
+
   List<AndroidWiFiAccessPoint> _availableNetworks = [];
   bool _isScanning = false;
   bool _isConnecting = false;
   bool _isStreaming = false;
   ConnectivityResult _connectionStatus = ConnectivityResult.none;
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _streamingEndpointController = TextEditingController();
-  
+  final TextEditingController _streamingEndpointController =
+      TextEditingController();
+
   final List<String> _streamData = [];
 
   @override
@@ -59,7 +61,7 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
         setState(() {
           _connectionStatus = result;
         });
-        
+
         if (result == ConnectivityResult.wifi) {
           showSnackBar(context, 'Connected to WiFi');
         } else if (result == ConnectivityResult.none) {
@@ -120,19 +122,23 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
     });
 
     try {
-      final result = await _wifiService.connectToWiFiWithEndpoint(ssid, password);
+      final result =
+          await _wifiService.connectToWiFiWithEndpoint(ssid, password);
       if (mounted) {
         if (result['connected'] == true) {
           showSnackBar(context, 'Successfully connected to $ssid');
           _passwordController.clear();
-          
+
           // Set endpoint URL if available
           if (result['endpointUrl'] != null) {
             _streamingEndpointController.text = result['endpointUrl'];
           }
         } else {
           // Manual connection required
-          showSnackBar(context, result['message'] ?? 'WiFi settings opened. Please connect to $ssid manually.');
+          showSnackBar(
+              context,
+              result['message'] ??
+                  'WiFi settings opened. Please connect to $ssid manually.');
           _passwordController.clear();
         }
       }
@@ -298,7 +304,8 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
                         color: _getSignalStrengthColor(network.signalLevel),
                       ),
                       title: Text(network.ssid),
-                      subtitle: Text('Signal: ${network.signalLevel} dBm | ${network.security}'),
+                      subtitle: Text(
+                          'Signal: ${network.signalLevel} dBm | ${network.security}'),
                       trailing: network.security != 'Open'
                           ? const Icon(Icons.lock)
                           : const Icon(Icons.lock_open),
@@ -308,7 +315,8 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
                 ),
               )
             else
-              const Text('No networks found. Tap "Scan" to search for WiFi networks.'),
+              const Text(
+                  'No networks found. Tap "Scan" to search for WiFi networks.'),
           ],
         ),
       ),
@@ -416,7 +424,8 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
                           reverse: true,
                           itemCount: _streamData.length,
                           itemBuilder: (context, index) {
-                            final reversedIndex = _streamData.length - 1 - index;
+                            final reversedIndex =
+                                _streamData.length - 1 - index;
                             return Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8.0,
@@ -537,7 +546,8 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
       }
 
       // Generate filename with timestamp
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final timestamp =
+          DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
       final filename = 'canbussy_android_stream_$timestamp.txt';
       final filePath = '$directoryPath/$filename';
 
