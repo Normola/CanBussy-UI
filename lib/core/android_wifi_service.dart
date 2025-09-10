@@ -11,6 +11,15 @@ import 'package:logging/logging.dart';
 
 final _logger = Logger('AndroidWiFiService');
 
+// Enhanced connectivity status that includes internet access
+enum DetailedConnectivityStatus {
+  none, // No network connection
+  wifiNoInternet, // Connected to WiFi but no internet
+  wifiWithInternet, // Connected to WiFi with internet
+  mobile, // Connected to mobile data
+  ethernet, // Connected to ethernet
+}
+
 // Data class for WiFi access points
 class AndroidWiFiAccessPoint {
   final String ssid;
@@ -370,20 +379,27 @@ class AndroidWiFiService {
         _logger.info(
             'Connected to WiFi: $wifiName, IP: $wifiIP, Gateway: $gatewayIP');
 
+        // Check internet connectivity
+        final hasInternet = await checkInternetConnectivity();
+
         // Try to get endpoint URL from gateway
         final endpointUrl = await getEndpointUrlFromGateway();
 
         return {
           'connected': true,
+          'hasInternet': hasInternet,
           'wifiName': wifiName?.replaceAll('"', '') ?? 'Unknown',
           'deviceIP': wifiIP,
           'gatewayIP': gatewayIP?.replaceAll('"', ''),
           'endpointUrl': endpointUrl,
-          'message': 'Successfully connected to WiFi network',
+          'message': hasInternet
+              ? 'Successfully connected to WiFi with internet access'
+              : 'Connected to WiFi but no internet access',
         };
       } else {
         return {
           'connected': false,
+          'hasInternet': false,
           'message': 'Not connected to WiFi. Please check your connection.',
         };
       }
@@ -391,8 +407,47 @@ class AndroidWiFiService {
       _logger.severe('Error checking connection status: $e');
       return {
         'connected': false,
+        'hasInternet': false,
         'error': e.toString(),
       };
+    }
+  }
+
+  // Check if device has actual internet connectivity
+  Future<bool> checkInternetConnectivity() async {
+    try {
+      _logger.info('Checking internet connectivity...');
+
+      // Try multiple endpoints for reliability
+      final testEndpoints = [
+        'https://www.google.com',
+        'https://www.cloudflare.com',
+        'https://8.8.8.8', // Google DNS
+      ];
+
+      for (final endpoint in testEndpoints) {
+        try {
+          final response = await http
+              .get(
+                Uri.parse(endpoint),
+              )
+              .timeout(const Duration(seconds: 5));
+
+          if (response.statusCode == 200) {
+            _logger.info('Internet connectivity confirmed via $endpoint');
+            return true;
+          }
+        } catch (e) {
+          _logger.warning('Failed to reach $endpoint: $e');
+          continue;
+        }
+      }
+
+      _logger.warning('No internet connectivity detected');
+      return false;
+    } catch (e) {
+      _logger.severe('Error checking internet connectivity: $e');
+      return false;
     }
   }
 
@@ -427,6 +482,30 @@ class AndroidWiFiService {
     } catch (e) {
       _logger.severe('Error getting WiFi info: $e');
       return {};
+    }
+  }
+
+  // Get detailed connectivity status including internet access
+  Future<DetailedConnectivityStatus> getDetailedConnectivityStatus() async {
+    try {
+      final connectivity = await getCurrentConnectivity();
+
+      switch (connectivity) {
+        case ConnectivityResult.wifi:
+          final hasInternet = await checkInternetConnectivity();
+          return hasInternet
+              ? DetailedConnectivityStatus.wifiWithInternet
+              : DetailedConnectivityStatus.wifiNoInternet;
+        case ConnectivityResult.mobile:
+          return DetailedConnectivityStatus.mobile;
+        case ConnectivityResult.ethernet:
+          return DetailedConnectivityStatus.ethernet;
+        default:
+          return DetailedConnectivityStatus.none;
+      }
+    } catch (e) {
+      _logger.severe('Error getting detailed connectivity status: $e');
+      return DetailedConnectivityStatus.none;
     }
   }
 

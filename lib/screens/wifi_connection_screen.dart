@@ -21,7 +21,8 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
   bool _isScanning = false;
   bool _isConnecting = false;
   bool _isStreaming = false;
-  ConnectivityResult _connectionStatus = ConnectivityResult.none;
+  DetailedConnectivityStatus _detailedConnectionStatus =
+      DetailedConnectivityStatus.none;
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _streamingEndpointController =
       TextEditingController();
@@ -46,26 +47,55 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
   }
 
   Future<void> _initializeConnectivity() async {
-    final connectivity = await _wifiService.getCurrentConnectivity();
+    final detailedStatus = await _wifiService.getDetailedConnectivityStatus();
     if (mounted) {
       setState(() {
-        _connectionStatus = connectivity;
+        _detailedConnectionStatus = detailedStatus;
       });
     }
   }
 
   void _startConnectivityMonitoring() {
     _wifiService.startConnectivityMonitoring();
-    _wifiService.connectivityStream.listen((ConnectivityResult result) {
+    _wifiService.connectivityStream.listen((ConnectivityResult result) async {
       if (mounted) {
+        // Get detailed status when connectivity changes
+        final detailedStatus =
+            await _wifiService.getDetailedConnectivityStatus();
         setState(() {
-          _connectionStatus = result;
+          _detailedConnectionStatus = detailedStatus;
         });
 
-        if (result == ConnectivityResult.wifi) {
-          showSnackBar(context, 'Connected to WiFi');
-        } else if (result == ConnectivityResult.none) {
-          showSnackBar(context, 'Disconnected from network');
+        // If connected to WiFi (with or without internet), try to get endpoint URL
+        if (detailedStatus == DetailedConnectivityStatus.wifiWithInternet ||
+            detailedStatus == DetailedConnectivityStatus.wifiNoInternet) {
+          final endpointUrl = await _wifiService.getEndpointUrlFromGateway();
+          if (endpointUrl != null &&
+              _streamingEndpointController.text.isEmpty) {
+            setState(() {
+              _streamingEndpointController.text = endpointUrl;
+            });
+          }
+        }
+
+        // Show appropriate messages
+        if (mounted) {
+          switch (detailedStatus) {
+            case DetailedConnectivityStatus.wifiWithInternet:
+              showSnackBar(context, 'Connected to WiFi with internet access');
+              break;
+            case DetailedConnectivityStatus.wifiNoInternet:
+              showSnackBar(context, 'Connected to WiFi but no internet access');
+              break;
+            case DetailedConnectivityStatus.mobile:
+              showSnackBar(context, 'Connected to mobile data');
+              break;
+            case DetailedConnectivityStatus.none:
+              showSnackBar(context, 'Disconnected from network');
+              break;
+            default:
+              break;
+          }
         }
       }
     });
@@ -132,6 +162,19 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
           // Set endpoint URL if available
           if (result['endpointUrl'] != null) {
             _streamingEndpointController.text = result['endpointUrl'];
+          }
+
+          // Refresh detailed connectivity status after connection
+          final detailedStatus =
+              await _wifiService.getDetailedConnectivityStatus();
+          setState(() {
+            _detailedConnectionStatus = detailedStatus;
+          });
+
+          // Show internet status
+          if (result['hasInternet'] == false && mounted) {
+            showSnackBar(
+                context, 'Connected to WiFi but no internet access detected');
           }
         } else {
           // Manual connection required
@@ -219,18 +262,23 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
     Color statusColor;
     String statusText;
 
-    switch (_connectionStatus) {
-      case ConnectivityResult.wifi:
+    switch (_detailedConnectionStatus) {
+      case DetailedConnectivityStatus.wifiWithInternet:
         statusIcon = Icons.wifi;
         statusColor = Colors.green;
-        statusText = 'Connected to WiFi';
+        statusText = 'Connected to WiFi (Internet)';
         break;
-      case ConnectivityResult.mobile:
-        statusIcon = Icons.signal_cellular_4_bar;
+      case DetailedConnectivityStatus.wifiNoInternet:
+        statusIcon = Icons.wifi_off;
         statusColor = Colors.orange;
+        statusText = 'Connected to WiFi (No Internet)';
+        break;
+      case DetailedConnectivityStatus.mobile:
+        statusIcon = Icons.signal_cellular_4_bar;
+        statusColor = Colors.blue;
         statusText = 'Connected to Mobile Data';
         break;
-      case ConnectivityResult.ethernet:
+      case DetailedConnectivityStatus.ethernet:
         statusIcon = Icons.cable;
         statusColor = Colors.blue;
         statusText = 'Connected to Ethernet';
@@ -346,7 +394,10 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: _connectionStatus == ConnectivityResult.wifi
+              onPressed: (_detailedConnectionStatus ==
+                          DetailedConnectivityStatus.wifiWithInternet ||
+                      _detailedConnectionStatus ==
+                          DetailedConnectivityStatus.wifiNoInternet)
                   ? (_isStreaming ? _stopStreaming : _startStreaming)
                   : null,
               icon: Icon(_isStreaming ? Icons.stop : Icons.play_arrow),
@@ -356,7 +407,10 @@ class _WiFiConnectionScreenState extends State<WiFiConnectionScreen> {
                 foregroundColor: Colors.white,
               ),
             ),
-            if (_connectionStatus != ConnectivityResult.wifi)
+            if (_detailedConnectionStatus !=
+                    DetailedConnectivityStatus.wifiWithInternet &&
+                _detailedConnectionStatus !=
+                    DetailedConnectivityStatus.wifiNoInternet)
               const Padding(
                 padding: EdgeInsets.only(top: 8.0),
                 child: Text(
